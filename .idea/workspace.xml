@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="86d3d6e6-e6ec-4195-891f-c9fad0bc9f82" name="Changes" comment="core code">
+    <list default="true" id="86d3d6e6-e6ec-4195-891f-c9fad0bc9f82" name="Changes" comment="core code addition">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library_management/library/admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/library_management/library/admin.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library_management/library/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/library_management/library/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library_management/library/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/library_management/library/urls.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -63,11 +61,19 @@
       <option name="project" value="LOCAL" />
       <updated>1716595665891</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="core code addition">
+      <created>1716597819494</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1716597819494</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="core code" />
-    <option name="LAST_COMMIT_MESSAGE" value="core code" />
+    <MESSAGE value="core code addition" />
+    <option name="LAST_COMMIT_MESSAGE" value="core code addition" />
   </component>
 </project>
