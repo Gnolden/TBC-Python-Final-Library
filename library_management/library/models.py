@@ -35,7 +35,6 @@ class User(AbstractUser):
     personal_number = models.CharField(max_length=20, unique=True)
     birth_date = models.DateField()
 
-    # Adding related_name to avoid clashes
     groups = models.ManyToManyField(
         Group,
         related_name='library_user_set',

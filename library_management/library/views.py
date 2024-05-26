@@ -1,8 +1,10 @@
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import render, redirect
 from django.utils import timezone
+from django.views import View
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, action
@@ -24,7 +26,7 @@ def register_user(request):
             user = form.save(commit=False)
             user.set_password(form.cleaned_data['password1'])
             user.save()
-            # login(request, user)
+            login(request, user)
             return redirect('login')
     else:
         form = UserRegistrationForm()
@@ -32,34 +34,15 @@ def register_user(request):
 
 
 # User login view
-
-
-def login_user(request):
-    if request.method == 'POST':
-        form = LoginForm(request.POST)
-        email = form['email'].value()
-        password = form['password'].value()
-        user = authenticate(request, username=email, password=password)
-        u1 = authenticate(request, email="niko123@gmail.com", password="nikomujira123")
-        u2 = authenticate(request, username=email, password1=password)
-        u3 = authenticate(request, email=email, password1=password)
-        print('a')
-        print(f"{user=}")
-        print(f"{u1=}")
-        print(f"{u2=}")
-        print(f"{u3=}")
-        if user is not None:
-            login(request, user)
-            # Redirect to the desired page after login
-            return redirect('book_list')
-        else:
-            # Authentication failed
-            return render(request, 'authentication/login.html',
-                          {'form': form, 'error': 'Invalid username or password.'})
-
+def login_view(request):
+    if request.method == "POST":
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            login(request, form.get_user())
+            return redirect("book_list")
     else:
-        form = LoginForm()
-    return render(request, 'authentication/login.html', {'form': form})
+        form = AuthenticationForm()
+    return render(request, "authentication/login.html", { "form": form })
 
 
 # User logout view
