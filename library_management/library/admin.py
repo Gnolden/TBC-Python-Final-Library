@@ -3,20 +3,24 @@ from django.db.models import Count
 
 from .models import User, Author, Genre, Book, Rental
 
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'email', 'personal_number', 'birth_date')
     search_fields = ('full_name', 'email', 'personal_number')
+
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'birth_date')
     search_fields = ('full_name',)
 
+
 @admin.register(Genre)
 class GenreAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
+
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
@@ -32,6 +36,7 @@ class BookAdmin(admin.ModelAdmin):
 
     def times_rented(self, obj):
         return obj.num_rentals
+
 
 @admin.register(Rental)
 class RentalAdmin(admin.ModelAdmin):
