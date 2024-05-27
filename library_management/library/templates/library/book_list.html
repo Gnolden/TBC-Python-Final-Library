@@ -1,0 +1,18 @@
+{% extends "library/base.html" %}
+
+{% block title %}Book List{% endblock %}
+
+{% block content %}
+<h2>Books</h2>
+<ul>
+    {% for book in books %}
+        <li>{{ book.title }} by {{ book.author.full_name }} - Available copies: {{ book.amount_in_stock }}
+            {% if book.amount_in_stock > 0 %}
+                <a href="{% url 'borrow_book' book.id %}">Borrow</a>
+            {% else %}
+                Not available
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}

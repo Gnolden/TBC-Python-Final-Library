@@ -1,0 +1,14 @@
+{% extends "library/base.html" %}
+
+{% block title %}Borrowed Books{% endblock %}
+
+{% block content %}
+<h2>Borrowed Books</h2>
+<ul>
+    {% for borrowed_book in borrowed_books %}
+        <li>{{ borrowed_book.book.title }} borrowed on {{ borrowed_book.rent_date }}
+            <a href="{% url 'return_book' borrowed_book.id %}">Return</a>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
