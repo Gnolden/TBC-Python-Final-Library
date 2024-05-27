@@ -1,7 +1,7 @@
 import random
 from datetime import datetime
 from django.core.management.base import BaseCommand
-from library.models import Author, Genre, Book, User
+from .models import Author, Genre, Book, User
 
 class Command(BaseCommand):
     help = 'Populates the database with sample data'

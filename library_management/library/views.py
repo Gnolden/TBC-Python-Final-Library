@@ -12,10 +12,15 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from rest_framework.authtoken.models import Token
+from django.http import JsonResponse
+
+from datetime import timedelta
 from .forms import LoginForm
 from .forms import UserRegistrationForm
-from .models import User, Author, Genre, Book, Rental
+from .models import User, Author, Genre, Book, Rental, CustomToken
 from .serializers import UserSerializer, AuthorSerializer, GenreSerializer, BookSerializer, RentalSerializer
+import logging
 
 
 # User registration view
@@ -26,7 +31,7 @@ def register_user(request):
             user = form.save(commit=False)
             user.set_password(form.cleaned_data['password1'])
             user.save()
-            login(request, user)
+            # login(request, user)
             return redirect('login')
     else:
         form = UserRegistrationForm()
@@ -34,21 +39,61 @@ def register_user(request):
 
 
 # User login view
+logger = logging.getLogger(__name__)
+
+
 def login_view(request):
     if request.method == "POST":
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
-            login(request, form.get_user())
-            return redirect("book_list")
+            user = form.get_user()
+            if user is not None:
+                login(request, user)
+
+                try:
+                    # Delete old tokens if they exist
+                    CustomToken.objects.filter(user=user).delete()
+
+                    # Create new token with 2-hour expiration
+                    token = CustomToken.objects.create(
+                        user=user,
+                        device_name=request.META.get('HTTP_USER_AGENT', 'Unknown Device'),
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        expires_at=timezone.now() + timedelta(hours=2)  # Token expires in 2 hours
+                    )
+
+                    # Log token creation success
+                    logger.info(f"Token created for user {user.username}: {token.key}")
+
+                except Exception as e:
+                    # Log the error
+                    logger.error(f"Error creating token for user {user.username}: {e}")
+                    # Handle the error appropriately
+                    return render(request, "authentication/login.html",
+                                  {"form": form, "error": "Error creating token."})
+
+                return redirect("book_list")
     else:
         form = AuthenticationForm()
-    return render(request, "authentication/login.html", { "form": form })
+
+    return render(request, "authentication/login.html", {"form": form})
 
 
 # User logout view
 def logout_user(request):
     logout(request)
     return redirect('login')
+
+
+# views.py
+
+def create_user_token(request, username):
+    try:
+        user = User.objects.get(username=username)
+        token, created = Token.objects.get_or_create(user=user)
+        return JsonResponse({'token': token.key, 'created': created})
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
 
 
 # Book list view for customers

@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser, Group, Permission, BaseUserManager
 from django.db import models
+from rest_framework.authtoken.models import Token
+
 
 
 class UserManager(BaseUserManager):
@@ -56,6 +58,14 @@ class User(AbstractUser):
         return self.full_name
 
 
+class CustomToken(Token):
+    device_name = models.CharField(max_length=255, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Custom Token"
+        verbose_name_plural = "Custom Tokens"
 class Author(models.Model):
     full_name = models.CharField(max_length=100)
     birth_date = models.DateField()
