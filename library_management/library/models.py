@@ -1,5 +1,35 @@
+from django.contrib.auth.models import AbstractUser, Group, Permission, BaseUserManager
 from django.db import models
-from django.contrib.auth.models import AbstractUser, Group, Permission
+from rest_framework.authtoken.models import Token
+
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email field must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        # Provide default values for additional fields if not provided
+        extra_fields.setdefault('full_name', 'Superuser')
+        extra_fields.setdefault('personal_number', '0000000000')
+        extra_fields.setdefault('birth_date', '1970-01-01')  # Some default date
+
+        return self.create_user(email, password, **extra_fields)
+
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -7,7 +37,6 @@ class User(AbstractUser):
     personal_number = models.CharField(max_length=20, unique=True)
     birth_date = models.DateField()
 
-    # Adding related_name to avoid clashes
     groups = models.ManyToManyField(
         Group,
         related_name='library_user_set',
@@ -23,9 +52,20 @@ class User(AbstractUser):
         verbose_name=('user permissions'),
     )
 
+    objects = UserManager()
+
     def __str__(self):
         return self.full_name
 
+
+class CustomToken(Token):
+    device_name = models.CharField(max_length=255, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Custom Token"
+        verbose_name_plural = "Custom Tokens"
 class Author(models.Model):
     full_name = models.CharField(max_length=100)
     birth_date = models.DateField()
@@ -33,11 +73,13 @@ class Author(models.Model):
     def __str__(self):
         return self.full_name
 
+
 class Genre(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return self.name
+
 
 class Book(models.Model):
     title = models.CharField(max_length=200)
@@ -49,6 +91,7 @@ class Book(models.Model):
 
     def __str__(self):
         return self.title
+
 
 class Rental(models.Model):
     user = models.ForeignKey(User, related_name='rentals', on_delete=models.CASCADE)

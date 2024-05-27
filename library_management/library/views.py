@@ -1,32 +1,145 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view
-from rest_framework.response import Response
+from django.contrib.auth import authenticate, login
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import AuthenticationForm
+from django.shortcuts import render, redirect
 from django.utils import timezone
-from django.db.models import F, Count
-from .models import User, Author, Genre, Book, Rental
-from .serializers import UserSerializer, AuthorSerializer, GenreSerializer, BookSerializer, RentalSerializer
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from datetime import timedelta
+from django.views import View
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import api_view, action
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
+from rest_framework.authtoken.models import Token
+from django.http import JsonResponse
+
+from datetime import timedelta
+from .forms import LoginForm
+from .forms import UserRegistrationForm
+from .models import User, Author, Genre, Book, Rental, CustomToken
+from .serializers import UserSerializer, AuthorSerializer, GenreSerializer, BookSerializer, RentalSerializer
+import logging
+
+
+# User registration view
+def register_user(request):
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password1'])
+            user.save()
+            # login(request, user)
+            return redirect('login')
+    else:
+        form = UserRegistrationForm()
+    return render(request, 'authentication/register.html', {'form': form})
+
+
+# User login view
+logger = logging.getLogger(__name__)
+
+
+def login_view(request):
+    if request.method == "POST":
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            if user is not None:
+                login(request, user)
+
+                try:
+                    # Delete old tokens if they exist
+                    CustomToken.objects.filter(user=user).delete()
+
+                    # Create new token with 2-hour expiration
+                    token = CustomToken.objects.create(
+                        user=user,
+                        device_name=request.META.get('HTTP_USER_AGENT', 'Unknown Device'),
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        expires_at=timezone.now() + timedelta(hours=2)  # Token expires in 2 hours
+                    )
+
+                    # Log token creation success
+                    logger.info(f"Token created for user {user.username}: {token.key}")
+
+                except Exception as e:
+                    # Log the error
+                    logger.error(f"Error creating token for user {user.username}: {e}")
+                    # Handle the error appropriately
+                    return render(request, "authentication/login.html",
+                                  {"form": form, "error": "Error creating token."})
+
+                return redirect("book_list")
+    else:
+        form = AuthenticationForm()
+
+    return render(request, "authentication/login.html", {"form": form})
+
+
+# User logout view
+def logout_user(request):
+    logout(request)
+    return redirect('login')
+
+
+# views.py
+
+def create_user_token(request, username):
+    try:
+        user = User.objects.get(username=username)
+        token, created = Token.objects.get_or_create(user=user)
+        return JsonResponse({'token': token.key, 'created': created})
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+
+# Book list view for customers
+@login_required
+def book_list(request):
+    books = Book.objects.all()
+    return render(request, 'book_list.html', {'books': books})
+
+
+# Borrowed books view for customers
+@login_required
+def borrowed_books(request):
+    rentals = Rental.objects.filter(user=request.user)
+    return render(request, 'borrowed_books.html', {'rentals': rentals})
+
+
+# Viewsets
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
 
 class AuthorViewSet(viewsets.ModelViewSet):
     queryset = Author.objects.all()
     serializer_class = AuthorSerializer
+    permission_classes = [IsAuthenticated]
+
 
 class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
+    permission_classes = [IsAuthenticated]
+
 
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['genres', 'release_date']
+    search_fields = ['title', 'author__full_name']
+    pagination_class = PageNumberPagination
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def rent(self, request, pk=None):
+    def borrow(self, request, pk=None):
         book = self.get_object()
         user = request.user
         if book.amount_in_stock > 0:
@@ -34,7 +147,7 @@ class BookViewSet(viewsets.ModelViewSet):
             book.times_rented += 1
             book.save()
             rental = Rental.objects.create(user=user, book=book)
-            return Response({'status': 'book rented'}, status=status.HTTP_200_OK)
+            return Response({'status': 'book borrowed'}, status=status.HTTP_200_OK)
         else:
             return Response({'status': 'no stock'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -52,36 +165,40 @@ class BookViewSet(viewsets.ModelViewSet):
         else:
             return Response({'status': 'no active rental'}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class RentalViewSet(viewsets.ModelViewSet):
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
+    permission_classes = [IsAuthenticated]
 
+
+# Statistics views
 @api_view(['GET'])
 def top_books(request):
     top_books = Book.objects.order_by('-times_rented')[:10]
     serializer = BookSerializer(top_books, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.data)
+
 
 @api_view(['GET'])
 def top_late_books(request):
-    top_late_books = Rental.objects.filter(
-        return_date__gt=F('rent_date') + timedelta(days=1)
-    ).values('book').annotate(
-        late_count=Count('book')
-    ).order_by('-late_count')[:100]
-    book_ids = [item['book'] for item in top_late_books]
+    from datetime import timedelta
+    from django.db.models import Count, F
+    late_books = Rental.objects.filter(return_date__gt=F('rent_date') + timedelta(days=1)).values('book').annotate(
+        late_count=Count('book')).order_by('-late_count')[:100]
+    book_ids = [item['book'] for item in late_books]
     books = Book.objects.filter(id__in=book_ids)
     serializer = BookSerializer(books, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.data)
+
 
 @api_view(['GET'])
 def top_late_customers(request):
-    top_late_customers = Rental.objects.filter(
-        return_date__gt=F('rent_date') + timedelta(days=1)
-    ).values('user').annotate(
-        late_count=Count('user')
-    ).order_by('-late_count')[:100]
-    user_ids = [item['user'] for item in top_late_customers]
+    from datetime import timedelta
+    from django.db.models import Count, F
+    late_customers = Rental.objects.filter(return_date__gt=F('rent_date') + timedelta(days=1)).values('user').annotate(
+        late_count=Count('user')).order_by('-late_count')[:100]
+    user_ids = [item['user'] for item in late_customers]
     users = User.objects.filter(id__in=user_ids)
     serializer = UserSerializer(users, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.data)
