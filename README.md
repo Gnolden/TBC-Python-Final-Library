@@ -25,4 +25,5 @@ the customers are able to register on the site and rent out books from the libra
    pip install -r requirements.txt
 
 * to fill database for testing run the following command:
-* python manage.py populate_library
+   ```bash
+   python manage.py populate_library
